@@ -115,15 +115,7 @@
             </div>
 
             <div class="field full">
-              <div class="selected-panel" id="selected-organization">
-                <div class="empty-state compact">
-                  Медорганизация пока не выбрана.
-                </div>
-              </div>
-            </div>
-
-            <div class="field full">
-              <div class="result-panel">
+              <div class="result-panel" id="organization-results-panel">
                 <div class="panel-head">
                   <div>
                     <p class="panel-kicker">Результаты поиска</p>
@@ -135,6 +127,14 @@
                   <div class="empty-state">
                     Выберите район или начните поиск, чтобы появились живые варианты из каталога.
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field full">
+              <div class="selected-panel" id="selected-organization">
+                <div class="empty-state compact">
+                  Медорганизация пока не выбрана.
                 </div>
               </div>
             </div>
@@ -406,6 +406,7 @@
       const organizationMetaNode = document.getElementById("organization-meta");
       const organizationCountNode = document.getElementById("organization-count");
       const organizationResultsNode = document.getElementById("organization-results");
+      const organizationResultsPanelNode = document.getElementById("organization-results-panel");
       const selectedOrganizationNode = document.getElementById("selected-organization");
       const previewDaysNode = document.getElementById("preview-days");
       const slotsListNode = document.getElementById("slots-list");
@@ -524,6 +525,13 @@
       function setCatalogStatus(message, isError = false) {
         catalogStatusNode.textContent = message;
         catalogStatusNode.classList.toggle("error", isError);
+      }
+
+      function scrollOrganizationResultsIntoView() {
+        organizationResultsPanelNode?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }
 
       function setWatchStatus(message, isError = false) {
@@ -1136,6 +1144,7 @@
         selectedExternalId = "",
         queryOverride = null,
         forceRefresh = false,
+        scrollToResults = false,
       } = {}) {
         if (!state.selectedDistrictCode) {
           organizationMetaNode.textContent = "Сначала выберите район, потом поиск начнет подсказывать подходящие медорганизации.";
@@ -1156,6 +1165,9 @@
             ? `Показываю ${filteredOrganizations.length} результатов по запросу «${query}».`
             : "Показаны медорганизации выбранного района. Можно сразу выбрать или сузить поиск.";
           setCatalogStatus(`Найдено медорганизаций: ${filteredOrganizations.length}`);
+          if (scrollToResults && (filteredOrganizations.length || query)) {
+            window.setTimeout(scrollOrganizationResultsIntoView, 40);
+          }
           return;
         }
 
@@ -1191,6 +1203,9 @@
         }
 
         setCatalogStatus(`Найдено медорганизаций: ${organizations.length}`);
+        if (scrollToResults && (organizations.length || query)) {
+          window.setTimeout(scrollOrganizationResultsIntoView, 40);
+        }
       }
 
       async function loadSpecialties(selectedExternalId = "") {
@@ -1505,13 +1520,17 @@
         });
       }
 
-      async function runOrganizationSearch(queryOverride = null, forceRefresh = false) {
+      async function runOrganizationSearch(
+        queryOverride = null,
+        forceRefresh = false,
+        scrollToResults = false
+      ) {
         if (!state.selectedDistrictCode) {
           setCatalogStatus("Сначала выберите район.", true);
           return;
         }
         try {
-          await loadOrganizations({ queryOverride, forceRefresh });
+          await loadOrganizations({ queryOverride, forceRefresh, scrollToResults });
         } catch (error) {
           setCatalogStatus(error.message, true);
         }
@@ -1703,11 +1722,11 @@
           return;
         }
         event.preventDefault();
-        await runOrganizationSearch();
+        await runOrganizationSearch(null, false, true);
       });
 
       organizationSearchButton.addEventListener("click", async () => {
-        await runOrganizationSearch(null, true);
+        await runOrganizationSearch(null, true, true);
       });
 
       createWatchButton.addEventListener("click", async () => {
