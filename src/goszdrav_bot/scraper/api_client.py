@@ -36,11 +36,13 @@ class GorzdravApiClient:
         api_base_url: str,
         public_base_url: str,
         timeout_seconds: int = 20,
+        proxy_url: str | None = None,
     ) -> None:
         self.public_base_url = public_base_url.rstrip("/")
         transport = httpx.AsyncHTTPTransport(
             local_address="0.0.0.0",
             retries=1,
+            proxy=proxy_url,
         )
         self._client = httpx.AsyncClient(
             base_url=api_base_url.rstrip("/"),
