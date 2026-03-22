@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections import defaultdict
 from dataclasses import asdict
@@ -24,6 +25,8 @@ from goszdrav_bot.scraper.models import (
 
 TIME_RE = re.compile(r"(?<!\d)(\d{2}:\d{2})(?!:\d)")
 DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{2}\.\d{2}\.\d{4}\b")
+
+logger = logging.getLogger(__name__)
 
 
 class GorzdravApiClient:
@@ -242,6 +245,7 @@ class GorzdravApiClient:
         try:
             response = await self._client.get(path, headers=headers)
         except httpx.HTTPError as exc:
+            logger.warning("Gorzdrav API request failed: path=%s error=%s", path, exc)
             raise GorzdravScraperError(f"Ошибка запроса к API Госздрава: {exc}") from exc
 
         token = response.headers.get("token")
@@ -249,17 +253,37 @@ class GorzdravApiClient:
             self._token = token
 
         if response.status_code >= 400:
+            body_preview = response.text[:300].replace("\n", " ").replace("\r", " ").strip()
+            logger.warning(
+                "Gorzdrav API returned error status: path=%s status=%s body=%s",
+                path,
+                response.status_code,
+                body_preview,
+            )
             raise GorzdravScraperError(
-                f"API Госздрава вернул статус {response.status_code} для {path}."
+                f"API Госздрава вернул статус {response.status_code} для {path}. "
+                f"Ответ: {body_preview or 'пусто'}"
             )
 
         try:
             payload = response.json()
         except ValueError as exc:
+            body_preview = response.text[:300].replace("\n", " ").replace("\r", " ").strip()
+            logger.warning(
+                "Gorzdrav API returned invalid JSON: path=%s body=%s",
+                path,
+                body_preview,
+            )
             raise GorzdravScraperError("API Госздрава вернул невалидный JSON.") from exc
 
         if isinstance(payload, dict):
             if payload.get("success") is False:
+                logger.warning(
+                    "Gorzdrav API returned success=false: path=%s message=%s payload=%s",
+                    path,
+                    payload.get("message"),
+                    payload,
+                )
                 raise GorzdravScraperError(payload.get("message") or "API Госздрава вернул success=false.")
             if "result" in payload:
                 return payload["result"]
