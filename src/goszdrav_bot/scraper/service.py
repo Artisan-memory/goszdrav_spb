@@ -22,11 +22,13 @@ class AsyncGorzdravScraper:
             headless=settings.selenium_headless,
             timeout_seconds=settings.selenium_timeout_seconds,
             chrome_binary=settings.selenium_chrome_binary,
+            proxy_url=settings.effective_gorzdrav_selenium_proxy_url,
         )
         self._api_client = GorzdravApiClient(
             api_base_url=settings.gorzdrav_api_base_url,
             public_base_url=settings.gorzdrav_base_url,
             timeout_seconds=settings.selenium_timeout_seconds,
+            proxy_url=settings.effective_gorzdrav_api_proxy_url,
         )
 
     async def list_organizations(self, district_key: str, query: str | None = None) -> list[dict]:
