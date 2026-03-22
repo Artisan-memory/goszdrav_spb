@@ -357,6 +357,7 @@
 
       const state = {
         selectedDistrictCode: "",
+        organizationCatalog: [],
         organizations: [],
         selectedOrganization: null,
         specialties: [],
@@ -371,6 +372,7 @@
         selectedDayTitle: "",
         scheduleCache: {},
         doctorAvailabilityBatchId: 0,
+        organizationSearchRequestId: 0,
       };
 
       const BOOKING_STRATEGY_LABELS = {
@@ -437,6 +439,77 @@
           .toLowerCase()
           .replace(/\s+/g, " ")
           .trim();
+      }
+
+      function tokenizeSearchQuery(value) {
+        return normalizeText(value)
+          .replace(/[^0-9a-zа-яё]+/giu, " ")
+          .split(" ")
+          .filter(Boolean);
+      }
+
+      function buildOrganizationSearchHaystack(item) {
+        return normalizeText(
+          [
+            item?.label || "",
+            item?.address || "",
+            item?.phone || "",
+            item?.category || "",
+          ].join(" ")
+        );
+      }
+
+      function scoreOrganizationMatch(item, query) {
+        const normalizedQuery = normalizeText(query);
+        const label = normalizeText(item?.label || "");
+        const address = normalizeText(item?.address || "");
+        const haystack = buildOrganizationSearchHaystack(item);
+        const tokens = tokenizeSearchQuery(query);
+
+        if (!normalizedQuery) {
+          return 1;
+        }
+        if (label === normalizedQuery) {
+          return 500;
+        }
+        if (address === normalizedQuery) {
+          return 450;
+        }
+        if (label.startsWith(normalizedQuery)) {
+          return 400;
+        }
+        if (label.includes(normalizedQuery)) {
+          return 320;
+        }
+        if (address.includes(normalizedQuery)) {
+          return 260;
+        }
+        if (tokens.length && tokens.every((token) => label.includes(token))) {
+          return 220;
+        }
+        if (tokens.length && tokens.every((token) => haystack.includes(token))) {
+          return 180;
+        }
+        if (tokens.length && tokens.some((token) => haystack.includes(token))) {
+          return 100;
+        }
+        return 0;
+      }
+
+      function filterOrganizations(query, items = state.organizationCatalog) {
+        const normalizedQuery = normalizeText(query);
+        if (!normalizedQuery) {
+          return [...items];
+        }
+
+        return [...items]
+          .map((item) => ({
+            item,
+            score: scoreOrganizationMatch(item, normalizedQuery),
+          }))
+          .filter((entry) => entry.score > 0)
+          .sort((left, right) => right.score - left.score || normalizeText(left.item.label).localeCompare(normalizeText(right.item.label), "ru"))
+          .map((entry) => entry.item);
       }
 
       function canUseApi() {
@@ -1037,6 +1110,7 @@
       }
 
       function resetOrganizationState() {
+        state.organizationCatalog = [];
         state.selectedOrganization = null;
         state.specialties = [];
         state.selectedSpecialty = null;
@@ -1044,6 +1118,7 @@
         state.selectedDoctor = null;
         state.scheduleCache = {};
         state.doctorAvailabilityBatchId += 1;
+        state.organizationSearchRequestId += 1;
         renderSelectedOrganization();
         renderSpecialtyChoices();
         renderDoctorChoices();
@@ -1060,6 +1135,7 @@
         selectedLabel = "",
         selectedExternalId = "",
         queryOverride = null,
+        forceRefresh = false,
       } = {}) {
         if (!state.selectedDistrictCode) {
           organizationMetaNode.textContent = "Сначала выберите район, потом поиск начнет подсказывать подходящие медорганизации.";
@@ -1068,28 +1144,45 @@
         }
 
         const query = queryOverride !== null ? queryOverride : organizationSearchInput.value.trim();
-        const params = new URLSearchParams({ district_code: state.selectedDistrictCode });
-        if (query) {
-          params.set("query", query);
+        const requestId = ++state.organizationSearchRequestId;
+        const districtCode = state.selectedDistrictCode;
+        const hasCatalog = state.organizationCatalog.length > 0;
+
+        if (hasCatalog && !forceRefresh) {
+          const filteredOrganizations = filterOrganizations(query);
+          state.organizations = filteredOrganizations;
+          renderOrganizationResults(filteredOrganizations, query);
+          organizationMetaNode.textContent = query
+            ? `Показываю ${filteredOrganizations.length} результатов по запросу «${query}».`
+            : "Показаны медорганизации выбранного района. Можно сразу выбрать или сузить поиск.";
+          setCatalogStatus(`Найдено медорганизаций: ${filteredOrganizations.length}`);
+          return;
         }
 
-        setCatalogStatus("Загружаю медорганизации...");
-        const organizations = await apiRequest(`/api/v1/catalog/organizations?${params.toString()}`);
+        const params = new URLSearchParams({ district_code: districtCode });
+        setCatalogStatus(hasCatalog ? "Обновляю каталог медорганизаций..." : "Загружаю медорганизации...");
+        const catalogOrganizations = await apiRequest(`/api/v1/catalog/organizations?${params.toString()}`);
+        if (requestId !== state.organizationSearchRequestId || districtCode !== state.selectedDistrictCode) {
+          return;
+        }
+
+        state.organizationCatalog = catalogOrganizations;
+        const organizations = filterOrganizations(query, catalogOrganizations);
         state.organizations = organizations;
         renderOrganizationResults(organizations, query);
 
         organizationMetaNode.textContent = query
-          ? `Живой поиск обновлен по запросу «${query}».`
+          ? `Живой поиск обновлен по запросу «${query}». Найдено: ${organizations.length}.`
           : "Показаны медорганизации выбранного района. Можно сразу выбрать или сузить поиск.";
 
         let preferred = null;
         if (selectedExternalId) {
-          preferred = organizations.find(
+          preferred = catalogOrganizations.find(
             (item) => (item.external_id || "") === selectedExternalId
           );
         }
         if (!preferred && selectedLabel) {
-          preferred = organizations.find(
+          preferred = catalogOrganizations.find(
             (item) => normalizeText(item.label) === normalizeText(selectedLabel)
           );
         }
@@ -1412,13 +1505,13 @@
         });
       }
 
-      async function runOrganizationSearch(queryOverride = null) {
+      async function runOrganizationSearch(queryOverride = null, forceRefresh = false) {
         if (!state.selectedDistrictCode) {
           setCatalogStatus("Сначала выберите район.", true);
           return;
         }
         try {
-          await loadOrganizations({ queryOverride });
+          await loadOrganizations({ queryOverride, forceRefresh });
         } catch (error) {
           setCatalogStatus(error.message, true);
         }
@@ -1430,7 +1523,7 @@
         }
         state.organizationSearchTimer = window.setTimeout(() => {
           runOrganizationSearch();
-        }, 280);
+        }, state.organizationCatalog.length ? 80 : 280);
       }
 
       profileForm.addEventListener("submit", async (event) => {
@@ -1614,7 +1707,7 @@
       });
 
       organizationSearchButton.addEventListener("click", async () => {
-        await runOrganizationSearch();
+        await runOrganizationSearch(null, true);
       });
 
       createWatchButton.addEventListener("click", async () => {
