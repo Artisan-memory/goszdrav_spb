@@ -45,11 +45,13 @@ class GorzdravSeleniumScraper:
         headless: bool = True,
         timeout_seconds: int = 20,
         chrome_binary: str | None = None,
+        proxy_url: str | None = None,
     ) -> None:
         self.base_url = base_url
         self.headless = headless
         self.timeout_seconds = timeout_seconds
         self.chrome_binary = chrome_binary
+        self.proxy_url = proxy_url
 
     def list_organizations(self, district_title: str, query: str | None = None) -> list[dict]:
         with self._driver_session() as driver:
@@ -190,6 +192,8 @@ class GorzdravSeleniumScraper:
         options.add_argument("--no-sandbox")
         options.add_argument("--window-size=1600,1200")
         options.add_argument("--lang=ru-RU")
+        if self.proxy_url:
+            options.add_argument(f"--proxy-server={self.proxy_url}")
         if self.chrome_binary:
             options.binary_location = self.chrome_binary
 
