@@ -32,6 +32,12 @@ class Settings(BaseSettings):
         default="https://gorzdrav.spb.ru/_api/api",
         alias="GORZDRAV_API_BASE_URL",
     )
+    gorzdrav_proxy_url: str | None = Field(default=None, alias="GORZDRAV_PROXY_URL")
+    gorzdrav_api_proxy_url: str | None = Field(default=None, alias="GORZDRAV_API_PROXY_URL")
+    gorzdrav_selenium_proxy_url: str | None = Field(
+        default=None,
+        alias="GORZDRAV_SELENIUM_PROXY_URL",
+    )
     scraper_max_workers: int = Field(default=2, alias="SCRAPER_MAX_WORKERS")
     selenium_headless: bool = Field(default=True, alias="SELENIUM_HEADLESS")
     selenium_timeout_seconds: int = Field(default=20, alias="SELENIUM_TIMEOUT_SECONDS")
@@ -62,6 +68,27 @@ class Settings(BaseSettings):
             return [int(item.strip()) for item in value.split(",") if item.strip()]
         raise TypeError("BOT_ADMIN_IDS must be int, comma-separated string, or list[int].")
 
+    @field_validator(
+        "gorzdrav_proxy_url",
+        "gorzdrav_api_proxy_url",
+        "gorzdrav_selenium_proxy_url",
+        mode="before",
+    )
+    @classmethod
+    def validate_proxy_url(cls, value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        if not isinstance(value, str):
+            raise TypeError("Proxy URL must be a string.")
+
+        raw_value = value.strip()
+        parsed = urlparse(raw_value)
+        if not parsed.scheme or not parsed.netloc:
+            raise ValueError("Proxy URL must include scheme and host, for example http://host:port.")
+        if parsed.scheme.lower() == "mtproto":
+            raise ValueError("MTProto proxy is not supported for Goszdrav HTTP/Selenium traffic.")
+        return raw_value
+
     @property
     def has_webapp(self) -> bool:
         return bool(self.webapp_base_url)
@@ -78,6 +105,14 @@ class Settings(BaseSettings):
         if not self.webapp_base_url:
             return None
         return f"{self.webapp_base_url.rstrip('/')}/webapp/profile"
+
+    @property
+    def effective_gorzdrav_api_proxy_url(self) -> str | None:
+        return self.gorzdrav_api_proxy_url or self.gorzdrav_proxy_url
+
+    @property
+    def effective_gorzdrav_selenium_proxy_url(self) -> str | None:
+        return self.gorzdrav_selenium_proxy_url or self.gorzdrav_proxy_url
 
 
 @lru_cache(maxsize=1)
