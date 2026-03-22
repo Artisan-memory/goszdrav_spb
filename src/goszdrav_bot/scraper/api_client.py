@@ -38,11 +38,16 @@ class GorzdravApiClient:
         timeout_seconds: int = 20,
     ) -> None:
         self.public_base_url = public_base_url.rstrip("/")
+        transport = httpx.AsyncHTTPTransport(
+            local_address="0.0.0.0",
+            retries=1,
+        )
         self._client = httpx.AsyncClient(
             base_url=api_base_url.rstrip("/"),
             timeout=timeout_seconds,
             follow_redirects=True,
             headers={"Accept": "application/json"},
+            transport=transport,
         )
         self._token: str | None = None
 
@@ -245,8 +250,11 @@ class GorzdravApiClient:
         try:
             response = await self._client.get(path, headers=headers)
         except httpx.HTTPError as exc:
-            logger.warning("Gorzdrav API request failed: path=%s error=%s", path, exc)
-            raise GorzdravScraperError(f"Ошибка запроса к API Госздрава: {exc}") from exc
+            error_name = exc.__class__.__name__
+            logger.warning("Gorzdrav API request failed: path=%s error=%r", path, exc)
+            raise GorzdravScraperError(
+                f"Ошибка запроса к API Госздрава: {error_name}"
+            ) from exc
 
         token = response.headers.get("token")
         if token:
