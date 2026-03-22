@@ -69,13 +69,7 @@ class GorzdravApiClient:
             for item in self._ensure_list(payload)
         ]
         if query:
-            needle = self._normalize_text(query)
-            organizations = [
-                item
-                for item in organizations
-                if needle in self._normalize_text(item.label)
-                or needle in self._normalize_text(item.address or "")
-            ]
+            organizations = self._filter_organizations_by_query(organizations, query)
         return [asdict(item) for item in organizations]
 
     async def list_specialties(
@@ -279,6 +273,74 @@ class GorzdravApiClient:
     @staticmethod
     def _normalize_text(value: str) -> str:
         return " ".join((value or "").lower().split())
+
+    @classmethod
+    def _tokenize_query(cls, value: str) -> list[str]:
+        return [token for token in re.split(r"[^0-9a-zа-яё]+", cls._normalize_text(value)) if token]
+
+    @classmethod
+    def _organization_haystack(cls, organization: OrganizationRecord) -> str:
+        return cls._normalize_text(
+            " ".join(
+                part
+                for part in (
+                    organization.label,
+                    organization.address or "",
+                    organization.phone or "",
+                    organization.category or "",
+                )
+                if part
+            )
+        )
+
+    @classmethod
+    def _organization_search_score(cls, organization: OrganizationRecord, query: str) -> int:
+        normalized_query = cls._normalize_text(query)
+        if not normalized_query:
+            return 1
+
+        label = cls._normalize_text(organization.label)
+        address = cls._normalize_text(organization.address or "")
+        haystack = cls._organization_haystack(organization)
+        tokens = cls._tokenize_query(query)
+
+        if label == normalized_query:
+            return 500
+        if address == normalized_query:
+            return 450
+        if label.startswith(normalized_query):
+            return 400
+        if normalized_query in label:
+            return 320
+        if normalized_query in address:
+            return 260
+        if tokens and all(token in label for token in tokens):
+            return 220
+        if tokens and all(token in haystack for token in tokens):
+            return 180
+        if tokens and any(token in haystack for token in tokens):
+            return 100
+        return 0
+
+    @classmethod
+    def _filter_organizations_by_query(
+        cls,
+        organizations: list[OrganizationRecord],
+        query: str,
+    ) -> list[OrganizationRecord]:
+        ranked = [
+            (cls._organization_search_score(organization, query), organization)
+            for organization in organizations
+        ]
+        ranked = [entry for entry in ranked if entry[0] > 0]
+        ranked.sort(
+            key=lambda entry: (
+                -entry[0],
+                cls._normalize_text(entry[1].label),
+                cls._normalize_text(entry[1].address or ""),
+            )
+        )
+        return [organization for _, organization in ranked]
 
     def _normalize_district_code(self, district_key: str) -> str:
         if district_key in DISTRICT_BY_CODE:
