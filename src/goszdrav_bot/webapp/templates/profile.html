@@ -1,0 +1,1703 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <div class="ambient ambient-left"></div>
+      <div class="ambient ambient-right"></div>
+
+      <section class="shell">
+        <header class="hero glass-panel">
+          <div class="hero-copy">
+            <p class="eyebrow">Goszdrav SPB</p>
+            <h1>Профиль и наблюдения</h1>
+            <p>
+              Светлый рабочий профиль без перегруза: район и медорганизация
+              живут в профиле, а специальности, врачи, уведомления и автозапись
+              настраиваются ниже в отдельных наблюдениях.
+            </p>
+          </div>
+          <div class="hero-notes">
+            <div class="hero-pill">
+              <span>Профиль</span>
+              <strong>район + поликлиника</strong>
+            </div>
+            <div class="hero-pill">
+              <span>Наблюдение</span>
+              <strong>специальность + врач + режим</strong>
+            </div>
+            <div class="hero-pill">
+              <span>Live preview</span>
+              <strong>расписание и номерки в реальном времени</strong>
+            </div>
+          </div>
+        </header>
+
+        <div class="status glass-panel" id="status">
+          Ожидаю данные Telegram Mini App. Если страница открыта в обычном
+          браузере, сохранение будет работать только в dev-режиме.
+        </div>
+
+        <form id="profile-form" class="section-card glass-panel">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Профиль</p>
+              <h2>Основные данные пациента</h2>
+            </div>
+            <p class="section-copy">
+              Здесь хранятся стабильные данные: ФИО, email, дата рождения,
+              район и медорганизация.
+            </p>
+          </div>
+
+          <div class="profile-grid">
+            <div class="field full">
+              <label for="full_name">ФИО</label>
+              <input id="full_name" name="full_name" required />
+            </div>
+
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" required />
+            </div>
+
+            <div class="field">
+              <label for="birth_date">Дата рождения</label>
+              <input
+                id="birth_date"
+                name="birth_date"
+                placeholder="ДД.ММ.ГГГГ"
+                inputmode="numeric"
+                required
+              />
+            </div>
+
+            <div class="field full">
+              <label>Район</label>
+              <div class="district-grid" id="district-list">
+                {% for code, title in districts %}
+                <button
+                  type="button"
+                  class="chip-button district-chip"
+                  data-value="{{ code }}"
+                >
+                  {{ title }}
+                </button>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="field full">
+              <div class="label-row">
+                <label for="organization_search">Медорганизация</label>
+                <span class="field-help">Живой поиск по названию и адресу</span>
+              </div>
+              <div class="search-row">
+                <input
+                  id="organization_search"
+                  name="organization_search"
+                  placeholder="Начните вводить: например, Поликлиника 100, Искровский или Товарищеский"
+                />
+                <button type="button" id="organization_search_button">Обновить</button>
+              </div>
+              <div class="info-strip" id="organization-meta">
+                Сначала выберите район, потом поиск начнет подсказывать подходящие медорганизации.
+              </div>
+            </div>
+
+            <div class="field full">
+              <div class="selected-panel" id="selected-organization">
+                <div class="empty-state compact">
+                  Медорганизация пока не выбрана.
+                </div>
+              </div>
+            </div>
+
+            <div class="field full">
+              <div class="result-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Результаты поиска</p>
+                    <h3>Подходящие медорганизации</h3>
+                  </div>
+                  <span class="result-count" id="organization-count">0</span>
+                </div>
+                <div class="organization-results" id="organization-results">
+                  <div class="empty-state">
+                    Выберите район или начните поиск, чтобы появились живые варианты из каталога.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="submit-row">
+            <button type="submit">Сохранить профиль</button>
+            <p class="hint">
+              После сохранения ниже можно добавлять наблюдения по
+              специальностям, врачам и режиму работы бота.
+            </p>
+          </div>
+        </form>
+
+        <section class="section-card glass-panel">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Наблюдение</p>
+              <h2>Настройка мониторинга</h2>
+            </div>
+            <p class="section-copy">
+              Если врач один, он выбирается автоматически. Если врачей
+              несколько, можно оставить режим "Любой врач" и следить сразу за
+              всей специальностью.
+            </p>
+          </div>
+
+          <div class="watch-grid">
+            <div class="field">
+              <div class="label-row">
+                <label>Специальность</label>
+                <span class="field-help">Живые данные по выбранной поликлинике</span>
+              </div>
+              <div class="choice-grid" id="specialty-choices">
+                <div class="empty-state compact">
+                  Сначала выберите медорганизацию в профиле.
+                </div>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="label-row">
+                <label>Врач</label>
+                <span class="field-help" id="doctor-help">
+                  После выбора специальности появятся врачи и их номерки.
+                </span>
+              </div>
+              <div class="choice-grid" id="doctor-choices">
+                <div class="empty-state compact">
+                  Сначала выберите специальность.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mode-block">
+            <div>
+              <p class="panel-kicker">Режим работы</p>
+              <h3>Что делать при появлении номерка</h3>
+            </div>
+            <div class="mode-toggle" id="mode-toggle">
+              <button type="button" class="mode-button is-active" data-mode="notify">
+                Уведомлять
+              </button>
+              <button type="button" class="mode-button" data-mode="autobook">
+                Автозапись
+              </button>
+            </div>
+          </div>
+
+          <div class="mode-block strategy-block">
+            <div>
+              <p class="panel-kicker">Стратегия автозаписи</p>
+              <h3>Какой талон брать в первую очередь</h3>
+            </div>
+            <div class="mode-toggle strategy-toggle" id="strategy-toggle">
+              <button
+                type="button"
+                class="mode-button is-active"
+                data-strategy="nearest_date_latest_time"
+              >
+                Ближе + позже
+                <small>Ближайшая дата, самое позднее время</small>
+              </button>
+              <button
+                type="button"
+                class="mode-button"
+                data-strategy="nearest_date_earliest_time"
+              >
+                Ближе + раньше
+                <small>Ближайшая дата, самое раннее время</small>
+              </button>
+              <button
+                type="button"
+                class="mode-button"
+                data-strategy="morning_only"
+              >
+                Только утро
+                <small>Ищу талоны до 12:00, потом есть fallback</small>
+              </button>
+              <button
+                type="button"
+                class="mode-button"
+                data-strategy="evening_only"
+              >
+                Только вечер
+                <small>Ищу талоны после 16:00, потом есть fallback</small>
+              </button>
+            </div>
+            <p class="hint strategy-hint" id="strategy-hint">
+              По умолчанию бот берет ближайшую дату и самое позднее время в этот день.
+            </p>
+          </div>
+
+          <div class="submit-row">
+            <button type="button" id="create_watch_button">Добавить наблюдение</button>
+            <p class="hint">
+              В режиме уведомления бот пришлет сводку и прямую ссылку. В режиме
+              автозаписи бот выберет талон по выбранной стратегии.
+            </p>
+          </div>
+          <div class="status inline-status watch-status" id="watch-status">
+            Сначала выберите специальность, затем можно добавить наблюдение.
+          </div>
+        </section>
+
+        <section class="section-card glass-panel">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Live preview</p>
+              <h2>Расписание и номерки</h2>
+            </div>
+            <div class="inline-actions" id="schedule-actions"></div>
+          </div>
+
+          <div class="status inline-status" id="catalog-status">
+            Сначала сохраните профиль или выберите район и медорганизацию.
+          </div>
+
+          <div class="schedule-metrics" id="schedule-metrics">
+            <div class="metric-card">
+              <span>Врач</span>
+              <strong>Еще не выбран</strong>
+            </div>
+            <div class="metric-card">
+              <span>Месяц</span>
+              <strong>Нет данных</strong>
+            </div>
+            <div class="metric-card">
+              <span>Свободных талонов</span>
+              <strong>0</strong>
+            </div>
+            <div class="metric-card">
+              <span>Дней с номерками</span>
+              <strong>0</strong>
+            </div>
+          </div>
+
+          <div class="schedule-layout">
+            <div class="schedule-column">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Обзор по дням</p>
+                  <h3>Выберите день приема</h3>
+                </div>
+              </div>
+              <div class="day-grid" id="preview-days">
+                <div class="empty-state compact">
+                  Выберите врача, чтобы увидеть календарь и обзор.
+                </div>
+              </div>
+            </div>
+
+            <div class="schedule-column">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Свободные талоны</p>
+                  <h3>Все найденные номерки</h3>
+                </div>
+              </div>
+              <div class="info-strip schedule-filter-strip" id="slots-filter-status">
+                Выберите врача, чтобы увидеть талоны по дням. После загрузки можно нажать на день и отфильтровать список.
+              </div>
+              <div class="slot-groups" id="slots-list">
+                <div class="empty-state compact">
+                  Талоны появятся после выбора конкретного врача.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-card glass-panel">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Мои наблюдения</p>
+              <h2>Активные и приостановленные правила</h2>
+            </div>
+            <p class="section-copy">
+              Здесь можно проверить скан вручную, поставить паузу, удалить
+              наблюдение или открыть последнюю ссылку на расписание.
+            </p>
+          </div>
+
+          <div class="watch-list" id="watch-list">
+            <div class="empty-state">Наблюдений пока нет.</div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const tg = window.Telegram?.WebApp;
+      const webappDevMode = {{ "true" if webapp_dev_mode else "false" }};
+      const defaultDebugTelegramId = {{ webapp_default_debug_telegram_id if webapp_default_debug_telegram_id is not none else "null" }};
+      const urlParams = new URLSearchParams(window.location.search);
+      const debugTelegramId =
+        urlParams.get("debug_telegram_id") ||
+        (defaultDebugTelegramId !== null ? String(defaultDebugTelegramId) : "");
+
+      const state = {
+        selectedDistrictCode: "",
+        organizations: [],
+        selectedOrganization: null,
+        specialties: [],
+        selectedSpecialty: null,
+        doctors: [],
+        selectedDoctor: null,
+        watchMode: "notify",
+        bookingStrategy: "nearest_date_latest_time",
+        organizationSearchTimer: null,
+        latestScheduleUrl: "",
+        currentSchedule: null,
+        selectedDayTitle: "",
+        scheduleCache: {},
+        doctorAvailabilityBatchId: 0,
+      };
+
+      const BOOKING_STRATEGY_LABELS = {
+        nearest_date_latest_time: "Ближайшая дата, позднее время",
+        nearest_date_earliest_time: "Ближайшая дата, раннее время",
+        morning_only: "Только утро",
+        evening_only: "Только вечер",
+      };
+
+      const BOOKING_STRATEGY_SHORT_LABELS = {
+        nearest_date_latest_time: "Ближе + позже",
+        nearest_date_earliest_time: "Ближе + раньше",
+        morning_only: "Только утро",
+        evening_only: "Только вечер",
+      };
+
+      const BOOKING_STRATEGY_HINTS = {
+        nearest_date_latest_time:
+          "Бот берет ближайший день, а внутри него выбирает самое позднее доступное время.",
+        nearest_date_earliest_time:
+          "Бот берет ближайший день, а внутри него выбирает самое раннее доступное время.",
+        morning_only:
+          "Бот приоритетно ищет утренние талоны до 12:00. Если их нет, переключается на запасной вариант.",
+        evening_only:
+          "Бот приоритетно ищет вечерние талоны после 16:00. Если их нет, переключается на запасной вариант.",
+      };
+
+      const profileForm = document.getElementById("profile-form");
+      const statusNode = document.getElementById("status");
+      const catalogStatusNode = document.getElementById("catalog-status");
+      const organizationMetaNode = document.getElementById("organization-meta");
+      const organizationCountNode = document.getElementById("organization-count");
+      const organizationResultsNode = document.getElementById("organization-results");
+      const selectedOrganizationNode = document.getElementById("selected-organization");
+      const previewDaysNode = document.getElementById("preview-days");
+      const slotsListNode = document.getElementById("slots-list");
+      const slotsFilterStatusNode = document.getElementById("slots-filter-status");
+      const scheduleMetricsNode = document.getElementById("schedule-metrics");
+      const scheduleActionsNode = document.getElementById("schedule-actions");
+      const watchListNode = document.getElementById("watch-list");
+      const watchStatusNode = document.getElementById("watch-status");
+      const districtListNode = document.getElementById("district-list");
+      const organizationSearchInput = document.getElementById("organization_search");
+      const organizationSearchButton = document.getElementById("organization_search_button");
+      const specialtyChoicesNode = document.getElementById("specialty-choices");
+      const doctorChoicesNode = document.getElementById("doctor-choices");
+      const doctorHelpNode = document.getElementById("doctor-help");
+      const modeToggleNode = document.getElementById("mode-toggle");
+      const strategyToggleNode = document.getElementById("strategy-toggle");
+      const strategyHintNode = document.getElementById("strategy-hint");
+      const createWatchButton = document.getElementById("create_watch_button");
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function normalizeText(value) {
+        return String(value || "")
+          .toLowerCase()
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function canUseApi() {
+        return Boolean(tg?.initData || (webappDevMode && debugTelegramId));
+      }
+
+      function setStatus(message, isError = false) {
+        statusNode.textContent = message;
+        statusNode.classList.toggle("error", isError);
+      }
+
+      function setCatalogStatus(message, isError = false) {
+        catalogStatusNode.textContent = message;
+        catalogStatusNode.classList.toggle("error", isError);
+      }
+
+      function setWatchStatus(message, isError = false) {
+        watchStatusNode.textContent = message;
+        watchStatusNode.classList.toggle("error", isError);
+      }
+
+      function setButtonBusy(button, isBusy, busyText = "Сохраняю...") {
+        if (!(button instanceof HTMLButtonElement)) {
+          return;
+        }
+        if (!button.dataset.originalText) {
+          button.dataset.originalText = button.textContent || "";
+        }
+        button.disabled = isBusy;
+        button.textContent = isBusy ? busyText : button.dataset.originalText;
+      }
+
+      function formatBirthDateForDisplay(rawValue) {
+        if (!rawValue) {
+          return "";
+        }
+        const parts = String(rawValue).split("-");
+        if (parts.length === 3) {
+          return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        }
+        return rawValue;
+      }
+
+      function parseBirthDateForApi(rawValue) {
+        const value = String(rawValue || "").trim();
+        if (!value) {
+          return "";
+        }
+        const dotMatch = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        if (dotMatch) {
+          return `${dotMatch[3]}-${dotMatch[2]}-${dotMatch[1]}`;
+        }
+        const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+          return value;
+        }
+        throw new Error("Дата рождения должна быть в формате ДД.ММ.ГГГГ.");
+      }
+
+      function setMode(mode) {
+        state.watchMode = mode;
+        modeToggleNode.querySelectorAll(".mode-button").forEach((button) => {
+          button.classList.toggle("is-active", button.dataset.mode === mode);
+        });
+        renderStrategyHint();
+      }
+
+      function formatBookingStrategy(strategy) {
+        return (
+          BOOKING_STRATEGY_LABELS[strategy] ||
+          BOOKING_STRATEGY_LABELS.nearest_date_latest_time
+        );
+      }
+
+      function setBookingStrategy(strategy) {
+        state.bookingStrategy =
+          BOOKING_STRATEGY_LABELS[strategy] ? strategy : "nearest_date_latest_time";
+        strategyToggleNode.querySelectorAll(".mode-button").forEach((button) => {
+          button.classList.toggle(
+            "is-active",
+            button.dataset.strategy === state.bookingStrategy
+          );
+        });
+        renderStrategyHint();
+      }
+
+      function renderStrategyHint() {
+        const label = formatBookingStrategy(state.bookingStrategy);
+        const hint =
+          BOOKING_STRATEGY_HINTS[state.bookingStrategy] ||
+          BOOKING_STRATEGY_HINTS.nearest_date_latest_time;
+        strategyToggleNode.classList.toggle("is-passive", state.watchMode !== "autobook");
+        strategyHintNode.textContent =
+          state.watchMode === "autobook"
+            ? `${label}. ${hint}`
+            : `Пока выбран режим уведомления. Если переключить на автозапись, бот будет использовать правило: ${label}.`;
+      }
+
+      function setDistrict(code) {
+        state.selectedDistrictCode = code || "";
+        districtListNode.querySelectorAll(".district-chip").forEach((button) => {
+          button.classList.toggle("is-active", button.dataset.value === state.selectedDistrictCode);
+        });
+      }
+
+      function renderEmptySchedule(message) {
+        state.currentSchedule = null;
+        state.selectedDayTitle = "";
+        state.latestScheduleUrl = "";
+        scheduleActionsNode.innerHTML = "";
+        scheduleMetricsNode.innerHTML = `
+          <div class="metric-card">
+            <span>Врач</span>
+            <strong>${escapeHtml(state.selectedDoctor?.label || "Еще не выбран")}</strong>
+          </div>
+          <div class="metric-card">
+            <span>Месяц</span>
+            <strong>Нет данных</strong>
+          </div>
+          <div class="metric-card">
+            <span>Свободных талонов</span>
+            <strong>0</strong>
+          </div>
+          <div class="metric-card">
+            <span>Дней с номерками</span>
+            <strong>0</strong>
+          </div>
+        `;
+        previewDaysNode.innerHTML = `<div class="empty-state compact">${escapeHtml(message)}</div>`;
+        slotsListNode.innerHTML = `<div class="empty-state compact">${escapeHtml(message)}</div>`;
+        slotsFilterStatusNode.textContent = "Выберите врача, чтобы увидеть талоны по дням. После загрузки можно нажать на день и отфильтровать список.";
+      }
+
+      function getDoctorCacheKey(doctor) {
+        return String(doctor?.external_id || doctor?.label || "");
+      }
+
+      function getSlotDateParts(slot) {
+        const parts = String(slot?.time || "").split(" ");
+        const hasDatePrefix = /^\d{2}\.\d{2}\.\d{4}$/.test(parts[0] || "");
+        return {
+          dateTitle: hasDatePrefix ? parts[0] : "Ближайшие слоты",
+          timeLabel: hasDatePrefix ? parts.slice(1).join(" ") : String(slot?.time || ""),
+        };
+      }
+
+      function formatDoctorAvailability(item) {
+        if (item?.availability_status === "pending") {
+          return "Уточняю номерки...";
+        }
+        if (item?.availability_status === "error") {
+          return item?.available_slots !== null && item?.available_slots !== undefined
+            ? `${item.available_slots} номерков`
+            : "Не удалось уточнить";
+        }
+        return `${item?.available_slots ?? 0} номерков`;
+      }
+
+      function updateDoctorAvailability(doctor, schedule) {
+        const doctorKey = getDoctorCacheKey(doctor);
+        const match = state.doctors.find((item) => getDoctorCacheKey(item) === doctorKey);
+        if (!match) {
+          return;
+        }
+        match.available_slots = schedule?.slots?.length || 0;
+        match.preview_days = schedule?.preview_days || [];
+        match.availability_status = "live";
+        if (state.selectedDoctor && getDoctorCacheKey(state.selectedDoctor) === doctorKey) {
+          state.selectedDoctor = match;
+        }
+      }
+
+      function buildScheduleParams(doctor) {
+        const params = new URLSearchParams({
+          district_code: state.selectedDistrictCode,
+          organization_label: state.selectedOrganization.label,
+          specialty_label: state.selectedSpecialty.label,
+          doctor_label: doctor.label,
+        });
+        if (state.selectedOrganization.external_id) {
+          params.set("organization_external_id", state.selectedOrganization.external_id);
+        }
+        if (state.selectedSpecialty.external_id) {
+          params.set("specialty_external_id", state.selectedSpecialty.external_id);
+        }
+        if (doctor.external_id) {
+          params.set("doctor_external_id", doctor.external_id);
+        }
+        return params;
+      }
+
+      async function fetchScheduleForDoctor(doctor, { force = false } = {}) {
+        const cacheKey = getDoctorCacheKey(doctor);
+        if (!cacheKey) {
+          throw new Error("Не удалось определить врача для загрузки расписания.");
+        }
+        if (!force && state.scheduleCache[cacheKey]) {
+          return state.scheduleCache[cacheKey];
+        }
+        const params = buildScheduleParams(doctor);
+        const schedule = await apiRequest(`/api/v1/catalog/schedule?${params.toString()}`);
+        state.scheduleCache[cacheKey] = schedule;
+        return schedule;
+      }
+
+      function renderSelectedOrganization() {
+        if (!state.selectedOrganization) {
+          selectedOrganizationNode.innerHTML = `
+            <div class="empty-state compact">Медорганизация пока не выбрана.</div>
+          `;
+          return;
+        }
+
+        const item = state.selectedOrganization;
+        selectedOrganizationNode.innerHTML = `
+          <div class="selected-card">
+            <div>
+              <p class="panel-kicker">Выбрана медорганизация</p>
+              <h3>${escapeHtml(item.label)}</h3>
+              <p>${escapeHtml(item.address || "Адрес не указан")}</p>
+            </div>
+            <div class="selected-card-side">
+              ${item.category ? `<span class="mini-badge">${escapeHtml(item.category)}</span>` : ""}
+              <button type="button" class="ghost-button" data-action="clear-organization">Сбросить</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderOrganizationResults(items, searchQuery = "") {
+        organizationCountNode.textContent = String(items.length);
+        if (!state.selectedDistrictCode) {
+          organizationResultsNode.innerHTML = `
+            <div class="empty-state">Сначала выберите район, чтобы появился каталог медорганизаций.</div>
+          `;
+          return;
+        }
+        if (!items.length) {
+          const message = searchQuery
+            ? `По запросу «${escapeHtml(searchQuery)}» ничего не найдено. Попробуйте часть названия, номер поликлиники или адрес.`
+            : "Для выбранного района пока не удалось получить список медорганизаций.";
+          organizationResultsNode.innerHTML = `<div class="empty-state">${message}</div>`;
+          return;
+        }
+
+        organizationResultsNode.innerHTML = items
+          .map((item) => {
+            const isActive =
+              state.selectedOrganization &&
+              (state.selectedOrganization.external_id || "") === (item.external_id || "");
+            return `
+              <button
+                type="button"
+                class="organization-card ${isActive ? "is-active" : ""}"
+                data-external-id="${escapeHtml(item.external_id || "")}"
+              >
+                <div class="organization-main">
+                  <strong>${escapeHtml(item.label)}</strong>
+                  <span>${escapeHtml(item.address || "Адрес не указан")}</span>
+                </div>
+                <div class="organization-side">
+                  ${item.category ? `<span class="mini-badge">${escapeHtml(item.category)}</span>` : ""}
+                  ${item.phone ? `<small>${escapeHtml(item.phone)}</small>` : ""}
+                </div>
+              </button>
+            `;
+          })
+          .join("");
+      }
+
+      function renderSpecialtyChoices() {
+        if (!state.selectedOrganization) {
+          specialtyChoicesNode.innerHTML = `
+            <div class="empty-state compact">Сначала выберите медорганизацию в профиле.</div>
+          `;
+          return;
+        }
+        if (!state.specialties.length) {
+          specialtyChoicesNode.innerHTML = `
+            <div class="empty-state compact">Специальности еще не загружены.</div>
+          `;
+          return;
+        }
+
+        specialtyChoicesNode.innerHTML = state.specialties
+          .map((item) => {
+            const isActive =
+              state.selectedSpecialty &&
+              (state.selectedSpecialty.external_id || "") === (item.external_id || "");
+            return `
+              <button
+                type="button"
+                class="choice-card ${isActive ? "is-active" : ""}"
+                data-kind="specialty"
+                data-external-id="${escapeHtml(item.external_id || "")}"
+              >
+                <strong>${escapeHtml(item.label)}</strong>
+                <small>${item.available_slots ?? 0} номерков</small>
+              </button>
+            `;
+          })
+          .join("");
+      }
+
+      function renderDoctorChoices() {
+        if (!state.selectedSpecialty) {
+          doctorChoicesNode.innerHTML = `
+            <div class="empty-state compact">Сначала выберите специальность.</div>
+          `;
+          return;
+        }
+        if (!state.doctors.length) {
+          doctorChoicesNode.innerHTML = `
+            <div class="empty-state compact">По этой специальности врачи пока не найдены.</div>
+          `;
+          return;
+        }
+
+        const cards = [];
+        if (state.doctors.length > 1) {
+          const anyActive = !state.selectedDoctor;
+          cards.push(`
+            <button
+              type="button"
+              class="choice-card choice-card-any ${anyActive ? "is-active" : ""}"
+              data-kind="doctor-any"
+            >
+              <strong>Любой врач</strong>
+              <small>Подходит для мониторинга всей специальности</small>
+            </button>
+          `);
+        }
+
+        cards.push(
+          ...state.doctors.map((item) => {
+            const isActive =
+              state.selectedDoctor &&
+              (state.selectedDoctor.external_id || "") === (item.external_id || "");
+            return `
+              <button
+                type="button"
+                class="${[
+                  "choice-card",
+                  isActive ? "is-active" : "",
+                  item.availability_status === "pending" ? "is-pending" : "",
+                  (item.available_slots ?? 0) > 0 ? "has-live-slots" : "",
+                ].filter(Boolean).join(" ")}"
+                data-kind="doctor"
+                data-external-id="${escapeHtml(item.external_id || "")}"
+              >
+                <strong>${escapeHtml(item.label)}</strong>
+                <small>${escapeHtml(formatDoctorAvailability(item))}</small>
+              </button>
+            `;
+          })
+        );
+
+        doctorChoicesNode.innerHTML = cards.join("");
+      }
+
+      function renderPreviewDays(days) {
+        if (!days?.length) {
+          previewDaysNode.innerHTML = `
+            <div class="empty-state compact">Расписание пока не найдено.</div>
+          `;
+          return;
+        }
+        if (
+          state.selectedDayTitle &&
+          !days.some((day) => day.title === state.selectedDayTitle)
+        ) {
+          state.selectedDayTitle = "";
+        }
+        previewDaysNode.innerHTML = days
+          .map((day) => {
+            const details = day.slot_times?.length
+              ? day.slot_times.join(", ")
+              : day.summary || "Без слотов";
+            const isActive = state.selectedDayTitle === day.title;
+            return `
+              <button
+                type="button"
+                class="${[
+                  "day-card",
+                  day.has_slots ? "has-slots" : "",
+                  isActive ? "is-active" : "",
+                ].filter(Boolean).join(" ")}"
+                data-day-title="${escapeHtml(day.title)}"
+              >
+                <div class="day-head">
+                  <strong>${escapeHtml(day.title)}</strong>
+                  <span class="mini-badge ${day.has_slots ? "accent" : ""}">
+                    ${day.has_slots ? "Есть номерки" : "Расписание"}
+                  </span>
+                </div>
+                <p>${escapeHtml(details)}</p>
+              </button>
+            `;
+          })
+          .join("");
+      }
+
+      function groupSlotsByDate(slots) {
+        const groups = new Map();
+        slots.forEach((slot) => {
+          const { dateTitle, timeLabel } = getSlotDateParts(slot);
+          if (!groups.has(dateTitle)) {
+            groups.set(dateTitle, []);
+          }
+          groups.get(dateTitle).push({
+            time: timeLabel,
+            status: slot.status,
+            address: slot.address,
+          });
+        });
+        return Array.from(groups.entries());
+      }
+
+      function renderSlots(slots) {
+        if (!slots?.length) {
+          slotsListNode.innerHTML = `
+            <div class="empty-state compact">Свободные талоны пока не видны.</div>
+          `;
+          slotsFilterStatusNode.textContent = "Свободные талоны пока не видны.";
+          return;
+        }
+
+        const groups = groupSlotsByDate(slots);
+        const filteredGroups = state.selectedDayTitle
+          ? groups.filter(([dateTitle]) => dateTitle === state.selectedDayTitle)
+          : groups;
+
+        if (state.selectedDayTitle && !filteredGroups.length) {
+          state.selectedDayTitle = "";
+          renderPreviewDays(state.currentSchedule?.preview_days || []);
+          renderSlots(slots);
+          return;
+        }
+
+        slotsFilterStatusNode.textContent = state.selectedDayTitle
+          ? `Показываю талоны только на ${state.selectedDayTitle}. Нажмите на ту же карточку дня еще раз, чтобы вернуть все дни.`
+          : `Показываю все найденные талоны по ${groups.length} дням. Нажмите на карточку дня слева, чтобы отфильтровать список.`;
+
+        slotsListNode.innerHTML = filteredGroups
+          .map(([dateTitle, items]) => {
+            const slotRows = items
+              .map((slot) => {
+                return `
+                  <div class="slot-row">
+                    <div class="slot-time">
+                      <strong>${escapeHtml(slot.time || "Без времени")}</strong>
+                      <small>${escapeHtml(slot.status || "свободно")}</small>
+                    </div>
+                    <span>${escapeHtml(slot.address || "Адрес не распознан")}</span>
+                  </div>
+                `;
+              })
+              .join("");
+
+            return `
+              <article class="slot-group">
+                <div class="slot-group-head">
+                  <strong>${escapeHtml(dateTitle)}</strong>
+                  <span>${items.length} талонов</span>
+                </div>
+                <div class="slot-group-body">
+                  ${slotRows}
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      function renderScheduleSummary(schedule) {
+        const slotsCount = schedule.slots?.length || 0;
+        const daysWithSlots = (schedule.preview_days || []).filter((day) => day.has_slots).length;
+        scheduleMetricsNode.innerHTML = `
+          <div class="metric-card">
+            <span>Врач</span>
+            <strong>${escapeHtml(state.selectedDoctor?.label || "Любой врач")}</strong>
+          </div>
+          <div class="metric-card">
+            <span>Месяц</span>
+            <strong>${escapeHtml(schedule.month_label || "Нет данных")}</strong>
+          </div>
+          <div class="metric-card">
+            <span>Свободных талонов</span>
+            <strong>${slotsCount}</strong>
+          </div>
+          <div class="metric-card">
+            <span>Дней с номерками</span>
+            <strong>${daysWithSlots}</strong>
+          </div>
+        `;
+      }
+
+      function renderScheduleSnapshot(schedule) {
+        state.currentSchedule = schedule;
+        renderScheduleSummary(schedule);
+        renderPreviewDays(schedule.preview_days);
+        renderSlots(schedule.slots);
+        scheduleActionsNode.innerHTML = schedule.page_url
+          ? `<a class="hero-action" href="${escapeHtml(schedule.page_url)}" target="_blank" rel="noreferrer">Открыть в Госздраве</a>`
+          : "";
+      }
+
+      function renderWatchTargets(targets) {
+        if (!targets?.length) {
+          watchListNode.innerHTML = `<div class="empty-state">Наблюдений пока нет.</div>`;
+          return;
+        }
+
+        watchListNode.innerHTML = targets
+          .map((target) => {
+            const modeLabel = target.mode === "autobook" ? "Автозапись" : "Уведомление";
+            const strategyLabel = formatBookingStrategy(target.booking_strategy);
+            const statusLabel = target.is_active ? "Активно" : "Пауза";
+            const doctorLabel = target.doctor_label || "Любой врач по специальности";
+            const lastChecked = target.last_checked_at
+              ? new Date(target.last_checked_at).toLocaleString("ru-RU")
+              : "еще не проверялось";
+            const strategyActions = target.mode === "autobook"
+              ? Object.entries(BOOKING_STRATEGY_SHORT_LABELS)
+                  .map(([value, label]) => `
+                    <button
+                      type="button"
+                      class="ghost-button ${target.booking_strategy === value ? "is-active" : ""}"
+                      data-action="set-strategy"
+                      data-id="${target.id}"
+                      data-strategy="${value}"
+                    >
+                      ${escapeHtml(label)}
+                    </button>
+                  `)
+                  .join("")
+              : "";
+            return `
+              <article class="watch-card">
+                <div class="watch-head">
+                  <div>
+                    <p class="panel-kicker">${escapeHtml(target.organization_label)}</p>
+                    <h3>${escapeHtml(target.specialty_label)}</h3>
+                    <p>${escapeHtml(doctorLabel)}</p>
+                  </div>
+                  <div class="badge-row">
+                    <span class="mini-badge accent">${modeLabel}</span>
+                    ${target.mode === "autobook" ? `<span class="mini-badge">${escapeHtml(strategyLabel)}</span>` : ""}
+                    <span class="mini-badge">${statusLabel}</span>
+                  </div>
+                </div>
+                <p class="watch-summary">${escapeHtml(target.latest_result_summary || "Сканирование еще не выполнялось.")}</p>
+                ${target.mode === "autobook" ? `<p class="watch-summary muted-text">Стратегия автозаписи: ${escapeHtml(strategyLabel)}.</p>` : ""}
+                <p class="watch-summary muted-text">
+                  Последняя проверка: ${escapeHtml(lastChecked)}. Последний результат по слотам:
+                  ${escapeHtml(target.last_seen_slots_count ?? "нет данных")}.
+                </p>
+                ${target.mode === "autobook" ? `<div class="inline-actions watch-strategy-actions">${strategyActions}</div>` : ""}
+                <div class="inline-actions">
+                  <button type="button" class="ghost-button" data-action="scan" data-id="${target.id}">Проверить</button>
+                  <button
+                    type="button"
+                    class="ghost-button"
+                    data-action="toggle"
+                    data-id="${target.id}"
+                    data-active="${target.is_active}"
+                  >
+                    ${target.is_active ? "Пауза" : "Запустить"}
+                  </button>
+                  ${target.latest_result_url ? `<a class="ghost-link" href="${escapeHtml(target.latest_result_url)}" target="_blank" rel="noreferrer">Открыть ссылку</a>` : ""}
+                  <button type="button" class="danger-button" data-action="delete" data-id="${target.id}">Удалить</button>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      async function apiRequest(url, options = {}) {
+        const headers = {
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        };
+        if (tg?.initData) {
+          headers["X-Telegram-Init-Data"] = tg.initData;
+        } else if (webappDevMode && debugTelegramId) {
+          headers["X-Debug-Telegram-Id"] = debugTelegramId;
+        } else {
+          throw new Error("Mini App не получил initData от Telegram, а локальный dev-режим не настроен.");
+        }
+
+        const response = await fetch(url, { ...options, headers });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.detail || "Ошибка запроса.");
+        }
+        return response.status === 204 ? null : response.json();
+      }
+
+      function resetOrganizationState() {
+        state.selectedOrganization = null;
+        state.specialties = [];
+        state.selectedSpecialty = null;
+        state.doctors = [];
+        state.selectedDoctor = null;
+        state.scheduleCache = {};
+        state.doctorAvailabilityBatchId += 1;
+        renderSelectedOrganization();
+        renderSpecialtyChoices();
+        renderDoctorChoices();
+        renderEmptySchedule("Выберите медорганизацию, затем специальность и врача.");
+      }
+
+      function setSelectedOrganization(item) {
+        state.selectedOrganization = item;
+        renderSelectedOrganization();
+        renderOrganizationResults(state.organizations, organizationSearchInput.value.trim());
+      }
+
+      async function loadOrganizations({
+        selectedLabel = "",
+        selectedExternalId = "",
+        queryOverride = null,
+      } = {}) {
+        if (!state.selectedDistrictCode) {
+          organizationMetaNode.textContent = "Сначала выберите район, потом поиск начнет подсказывать подходящие медорганизации.";
+          renderOrganizationResults([]);
+          return;
+        }
+
+        const query = queryOverride !== null ? queryOverride : organizationSearchInput.value.trim();
+        const params = new URLSearchParams({ district_code: state.selectedDistrictCode });
+        if (query) {
+          params.set("query", query);
+        }
+
+        setCatalogStatus("Загружаю медорганизации...");
+        const organizations = await apiRequest(`/api/v1/catalog/organizations?${params.toString()}`);
+        state.organizations = organizations;
+        renderOrganizationResults(organizations, query);
+
+        organizationMetaNode.textContent = query
+          ? `Живой поиск обновлен по запросу «${query}».`
+          : "Показаны медорганизации выбранного района. Можно сразу выбрать или сузить поиск.";
+
+        let preferred = null;
+        if (selectedExternalId) {
+          preferred = organizations.find(
+            (item) => (item.external_id || "") === selectedExternalId
+          );
+        }
+        if (!preferred && selectedLabel) {
+          preferred = organizations.find(
+            (item) => normalizeText(item.label) === normalizeText(selectedLabel)
+          );
+        }
+        if (preferred) {
+          setSelectedOrganization(preferred);
+        }
+
+        setCatalogStatus(`Найдено медорганизаций: ${organizations.length}`);
+      }
+
+      async function loadSpecialties(selectedExternalId = "") {
+        if (!state.selectedDistrictCode || !state.selectedOrganization) {
+          state.specialties = [];
+          state.selectedSpecialty = null;
+          renderSpecialtyChoices();
+          return;
+        }
+
+        setCatalogStatus("Загружаю специальности...");
+        const params = new URLSearchParams({
+          district_code: state.selectedDistrictCode,
+          organization_label: state.selectedOrganization.label,
+        });
+        if (state.selectedOrganization.external_id) {
+          params.set("organization_external_id", state.selectedOrganization.external_id);
+        }
+
+        const specialties = await apiRequest(`/api/v1/catalog/specialties?${params.toString()}`);
+        state.specialties = specialties;
+        state.selectedSpecialty = null;
+        state.doctors = [];
+        state.selectedDoctor = null;
+        state.scheduleCache = {};
+        state.doctorAvailabilityBatchId += 1;
+        renderSpecialtyChoices();
+        renderDoctorChoices();
+        renderEmptySchedule("Выберите специальность, чтобы увидеть врачей и талоны.");
+
+        let preferred = null;
+        if (selectedExternalId) {
+          preferred = specialties.find(
+            (item) => (item.external_id || "") === selectedExternalId
+          );
+        }
+
+        if (preferred) {
+          state.selectedSpecialty = preferred;
+          renderSpecialtyChoices();
+          await loadDoctors();
+          return;
+        }
+
+        if (specialties.length === 1) {
+          state.selectedSpecialty = specialties[0];
+          renderSpecialtyChoices();
+          setCatalogStatus(`Доступна одна специальность: ${specialties[0].label}. Загружаю врачей...`);
+          await loadDoctors();
+          return;
+        }
+
+        setCatalogStatus(`Найдено специальностей: ${specialties.length}`);
+        setWatchStatus("Выберите специальность для нового наблюдения.");
+      }
+
+      async function enrichDoctorAvailability(batchId) {
+        const queue = [...state.doctors];
+        const workerCount = Math.min(3, queue.length);
+        if (!workerCount) {
+          return;
+        }
+
+        const workers = Array.from({ length: workerCount }, () => (async () => {
+          while (queue.length) {
+            const doctor = queue.shift();
+            if (!doctor || batchId !== state.doctorAvailabilityBatchId) {
+              return;
+            }
+            try {
+              const schedule = await fetchScheduleForDoctor(doctor);
+              if (batchId !== state.doctorAvailabilityBatchId) {
+                return;
+              }
+              updateDoctorAvailability(doctor, schedule);
+              renderDoctorChoices();
+            } catch (error) {
+              const match = state.doctors.find(
+                (item) => getDoctorCacheKey(item) === getDoctorCacheKey(doctor)
+              );
+              if (match) {
+                match.availability_status = "error";
+                renderDoctorChoices();
+              }
+            }
+          }
+        })());
+
+        await Promise.allSettled(workers);
+        if (batchId !== state.doctorAvailabilityBatchId || state.selectedDoctor) {
+          return;
+        }
+
+        const doctorsWithSlots = state.doctors.filter((item) => (item.available_slots ?? 0) > 0);
+        if (doctorsWithSlots.length === 1) {
+          state.selectedDoctor = doctorsWithSlots[0];
+          renderDoctorChoices();
+          doctorHelpNode.textContent = "Свободные талоны нашлись только у одного врача. Он выбран автоматически.";
+          setWatchStatus(`Свободные талоны сейчас есть у врача: ${doctorsWithSlots[0].label}.`);
+          setCatalogStatus(`Свободные талоны нашлись у одного врача: ${doctorsWithSlots[0].label}. Показываю расписание...`);
+          await loadSchedule({ doctor: doctorsWithSlots[0], preferCache: true });
+          return;
+        }
+
+        if (doctorsWithSlots.length > 1) {
+          doctorHelpNode.textContent = "Номерки уточнены. Можно выбрать конкретного врача или оставить режим «Любой врач».";
+          setCatalogStatus(`Уточнил live-данные по врачам. Врачей с номерками: ${doctorsWithSlots.length}.`);
+        }
+      }
+
+      async function loadDoctors(selectedExternalId = "") {
+        if (!state.selectedDistrictCode || !state.selectedOrganization || !state.selectedSpecialty) {
+          state.doctors = [];
+          state.selectedDoctor = null;
+          renderDoctorChoices();
+          return;
+        }
+
+        setCatalogStatus("Загружаю список врачей...");
+        const params = new URLSearchParams({
+          district_code: state.selectedDistrictCode,
+          organization_label: state.selectedOrganization.label,
+          specialty_label: state.selectedSpecialty.label,
+        });
+        if (state.selectedOrganization.external_id) {
+          params.set("organization_external_id", state.selectedOrganization.external_id);
+        }
+        if (state.selectedSpecialty.external_id) {
+          params.set("specialty_external_id", state.selectedSpecialty.external_id);
+        }
+
+        const doctors = await apiRequest(`/api/v1/catalog/doctors?${params.toString()}`);
+        state.doctors = doctors.map((item) => ({
+          ...item,
+          availability_status: "pending",
+        }));
+        state.selectedDoctor = null;
+        state.scheduleCache = {};
+        state.doctorAvailabilityBatchId += 1;
+        const batchId = state.doctorAvailabilityBatchId;
+        renderDoctorChoices();
+        void enrichDoctorAvailability(batchId);
+
+        let preferred = null;
+        if (selectedExternalId) {
+          preferred = state.doctors.find(
+            (item) => (item.external_id || "") === selectedExternalId
+          );
+        }
+
+        if (preferred) {
+          state.selectedDoctor = preferred;
+          renderDoctorChoices();
+          doctorHelpNode.textContent = "Выбран конкретный врач. Ниже показано его расписание и номерки.";
+          setWatchStatus(`Для наблюдения выбран врач: ${preferred.label}.`);
+          await loadSchedule({ doctor: preferred });
+          return;
+        }
+
+        if (state.doctors.length === 1) {
+          state.selectedDoctor = state.doctors[0];
+          renderDoctorChoices();
+          doctorHelpNode.textContent = "Нашелся один врач. Он выбран автоматически.";
+          setWatchStatus(`Нашёлся один врач, он будет использован: ${state.doctors[0].label}.`);
+          setCatalogStatus(`Найден один врач: ${state.doctors[0].label}. Загружаю расписание...`);
+          await loadSchedule({ doctor: state.doctors[0] });
+          return;
+        }
+
+        doctorHelpNode.textContent = state.doctors.length > 1
+          ? "Можно выбрать конкретного врача или оставить режим «Любой врач» для наблюдения."
+          : "По этой специальности врачи пока не найдены.";
+        setWatchStatus(
+          state.doctors.length > 1
+            ? "Можно добавить наблюдение для всей специальности или выбрать конкретного врача."
+            : "Сейчас добавить наблюдение не получится: врачи не найдены.",
+          !state.doctors.length
+        );
+        renderEmptySchedule(
+          state.doctors.length
+            ? "Выберите конкретного врача, чтобы увидеть подробное расписание и свободные талоны."
+            : "По выбранной специальности пока нет доступных врачей."
+        );
+        setCatalogStatus(`Найдено врачей: ${state.doctors.length}. Уточняю реальные номерки...`);
+      }
+
+      async function loadSchedule({ doctor = state.selectedDoctor, preferCache = true } = {}) {
+        if (
+          !state.selectedDistrictCode ||
+          !state.selectedOrganization ||
+          !state.selectedSpecialty ||
+          !doctor
+        ) {
+          renderEmptySchedule("Выберите конкретного врача, чтобы увидеть расписание и талоны.");
+          return;
+        }
+
+        state.selectedDoctor = doctor;
+        state.selectedDayTitle = "";
+        renderDoctorChoices();
+        setCatalogStatus("Получаю расписание врача...");
+        const schedule = await fetchScheduleForDoctor(doctor, { force: !preferCache });
+        updateDoctorAvailability(doctor, schedule);
+        state.latestScheduleUrl = schedule.page_url || "";
+        renderDoctorChoices();
+        renderScheduleSnapshot(schedule);
+        setCatalogStatus(
+          schedule.slots?.length
+            ? `Найдено свободных талонов: ${schedule.slots.length}.`
+            : "Расписание загружено, но свободных талонов сейчас не видно."
+        );
+      }
+
+      async function loadWatchTargets() {
+        const targets = await apiRequest("/api/v1/watch-targets");
+        renderWatchTargets(targets);
+      }
+
+      function fillProfile(profile) {
+        profileForm.full_name.value = profile.full_name || "";
+        profileForm.email.value = profile.email || "";
+        profileForm.birth_date.value = formatBirthDateForDisplay(profile.birth_date);
+        setDistrict(profile.district_code || "");
+      }
+
+      async function loadProfile() {
+        if (!canUseApi()) {
+          setStatus(
+            "Страница открыта вне Telegram и без dev-режима. Привязка профиля к Telegram ID недоступна.",
+            true
+          );
+          return;
+        }
+
+        if (tg) {
+          tg.ready();
+          tg.expand();
+          setStatus("Загружаю профиль из Telegram Mini App...");
+        } else {
+          setStatus(`Локальный dev-режим: загружаю профиль по Telegram ID ${debugTelegramId}...`);
+        }
+
+        try {
+          const profile = await apiRequest("/api/v1/profile/me");
+          fillProfile(profile);
+          if (profile.district_code) {
+            await loadOrganizations({
+              selectedLabel: profile.organization_label || "",
+              selectedExternalId: profile.organization_external_id || "",
+            });
+          } else {
+            renderOrganizationResults([]);
+            renderSelectedOrganization();
+          }
+          if (state.selectedOrganization) {
+            await loadSpecialties();
+          }
+          await loadWatchTargets();
+          setMode("notify");
+          setBookingStrategy("nearest_date_latest_time");
+          setWatchStatus("Профиль загружен. Можно создать наблюдение после выбора специальности.");
+          if (tg?.initData) {
+            setStatus("Профиль и наблюдения загружены.");
+          } else {
+            setStatus(`Локальный dev-режим активен. Профиль загружен по Telegram ID ${debugTelegramId}.`);
+          }
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+      }
+
+      async function saveProfile() {
+        if (!state.selectedDistrictCode) {
+          throw new Error("Сначала выберите район.");
+        }
+        if (!state.selectedOrganization) {
+          throw new Error("Сначала выберите медорганизацию из живого списка.");
+        }
+
+        const payload = {
+          full_name: profileForm.full_name.value.trim(),
+          email: profileForm.email.value.trim(),
+          birth_date: parseBirthDateForApi(profileForm.birth_date.value),
+          district_code: state.selectedDistrictCode,
+          organization_label: state.selectedOrganization.label,
+          organization_external_id: state.selectedOrganization.external_id || null,
+        };
+
+        await apiRequest("/api/v1/profile/me", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+
+      async function createWatchTarget() {
+        if (!state.selectedSpecialty) {
+          throw new Error("Сначала выберите специальность.");
+        }
+
+        const payload = {
+          specialty_label: state.selectedSpecialty.label,
+          specialty_external_id: state.selectedSpecialty.external_id || null,
+          doctor_label: state.selectedDoctor?.label || null,
+          doctor_external_id: state.selectedDoctor?.external_id || null,
+          mode: state.watchMode,
+          booking_strategy: state.bookingStrategy,
+        };
+
+        await apiRequest("/api/v1/watch-targets", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+
+      async function runOrganizationSearch(queryOverride = null) {
+        if (!state.selectedDistrictCode) {
+          setCatalogStatus("Сначала выберите район.", true);
+          return;
+        }
+        try {
+          await loadOrganizations({ queryOverride });
+        } catch (error) {
+          setCatalogStatus(error.message, true);
+        }
+      }
+
+      function scheduleOrganizationSearch() {
+        if (state.organizationSearchTimer) {
+          window.clearTimeout(state.organizationSearchTimer);
+        }
+        state.organizationSearchTimer = window.setTimeout(() => {
+          runOrganizationSearch();
+        }, 280);
+      }
+
+      profileForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setStatus("Сохраняю профиль...");
+        try {
+          await saveProfile();
+          await loadSpecialties();
+          await loadWatchTargets();
+          setStatus("Профиль сохранен.");
+          tg?.HapticFeedback?.notificationOccurred("success");
+        } catch (error) {
+          setStatus(error.message, true);
+          tg?.HapticFeedback?.notificationOccurred("error");
+        }
+      });
+
+      districtListNode.addEventListener("click", async (event) => {
+        const button = event.target.closest(".district-chip");
+        if (!(button instanceof HTMLElement)) {
+          return;
+        }
+        const nextCode = button.dataset.value || "";
+        if (nextCode === state.selectedDistrictCode) {
+          return;
+        }
+        setDistrict(nextCode);
+        organizationSearchInput.value = "";
+        resetOrganizationState();
+        renderOrganizationResults([]);
+        try {
+          await loadOrganizations();
+        } catch (error) {
+          setCatalogStatus(error.message, true);
+        }
+      });
+
+      selectedOrganizationNode.addEventListener("click", async (event) => {
+        const button = event.target.closest('[data-action="clear-organization"]');
+        if (!(button instanceof HTMLElement)) {
+          return;
+        }
+        state.selectedOrganization = null;
+        renderSelectedOrganization();
+        state.selectedSpecialty = null;
+        state.specialties = [];
+        state.selectedDoctor = null;
+        state.doctors = [];
+        renderSpecialtyChoices();
+        renderDoctorChoices();
+        renderEmptySchedule("Выберите медорганизацию, затем специальность и врача.");
+        try {
+          await loadOrganizations({ queryOverride: organizationSearchInput.value.trim() });
+        } catch (error) {
+          setCatalogStatus(error.message, true);
+        }
+      });
+
+      organizationResultsNode.addEventListener("click", async (event) => {
+        const button = event.target.closest(".organization-card");
+        if (!(button instanceof HTMLElement)) {
+          return;
+        }
+        const externalId = button.dataset.externalId || "";
+        const selected = state.organizations.find(
+          (item) => (item.external_id || "") === externalId
+        );
+        if (!selected) {
+          return;
+        }
+        setSelectedOrganization(selected);
+        state.selectedSpecialty = null;
+        state.specialties = [];
+        state.selectedDoctor = null;
+        state.doctors = [];
+        renderSpecialtyChoices();
+        renderDoctorChoices();
+        renderEmptySchedule("Выберите специальность и врача, чтобы увидеть номерки.");
+        try {
+          await loadSpecialties();
+        } catch (error) {
+          setCatalogStatus(error.message, true);
+        }
+      });
+
+      specialtyChoicesNode.addEventListener("click", async (event) => {
+        const button = event.target.closest('[data-kind="specialty"]');
+        if (!(button instanceof HTMLElement)) {
+          return;
+        }
+        const externalId = button.dataset.externalId || "";
+        const selected = state.specialties.find(
+          (item) => (item.external_id || "") === externalId
+        );
+        if (!selected) {
+          return;
+        }
+        state.selectedSpecialty = selected;
+        state.selectedDoctor = null;
+        state.doctors = [];
+        renderSpecialtyChoices();
+        renderDoctorChoices();
+        renderEmptySchedule("Загружаю врачей по выбранной специальности...");
+        try {
+          await loadDoctors();
+        } catch (error) {
+          setCatalogStatus(error.message, true);
+        }
+      });
+
+      doctorChoicesNode.addEventListener("click", async (event) => {
+        const anyButton = event.target.closest('[data-kind="doctor-any"]');
+        if (anyButton instanceof HTMLElement) {
+          state.selectedDoctor = null;
+          renderDoctorChoices();
+          renderEmptySchedule("Для preview выберите конкретного врача. Для наблюдения можно оставить режим «Любой врач».");
+          setCatalogStatus("Для наблюдения выбран режим по всей специальности.");
+          return;
+        }
+
+        const button = event.target.closest('[data-kind="doctor"]');
+        if (!(button instanceof HTMLElement)) {
+          return;
+        }
+        const externalId = button.dataset.externalId || "";
+        const selected = state.doctors.find(
+          (item) => (item.external_id || "") === externalId
+        );
+        if (!selected) {
+          return;
+        }
+        state.selectedDoctor = selected;
+        renderDoctorChoices();
+        try {
+          await loadSchedule({ doctor: selected });
+        } catch (error) {
+          setCatalogStatus(error.message, true);
+        }
+      });
+
+      previewDaysNode.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-day-title]");
+        if (!(button instanceof HTMLElement) || !state.currentSchedule) {
+          return;
+        }
+        const nextDayTitle = button.dataset.dayTitle || "";
+        state.selectedDayTitle = state.selectedDayTitle === nextDayTitle ? "" : nextDayTitle;
+        renderPreviewDays(state.currentSchedule.preview_days || []);
+        renderSlots(state.currentSchedule.slots || []);
+      });
+
+      modeToggleNode.addEventListener("click", (event) => {
+        const button = event.target.closest(".mode-button");
+        if (!(button instanceof HTMLElement)) {
+          return;
+        }
+        setMode(button.dataset.mode || "notify");
+      });
+
+      strategyToggleNode.addEventListener("click", (event) => {
+        const button = event.target.closest(".mode-button");
+        if (!(button instanceof HTMLElement)) {
+          return;
+        }
+        setBookingStrategy(button.dataset.strategy || "nearest_date_latest_time");
+      });
+
+      organizationSearchInput.addEventListener("input", () => {
+        if (!state.selectedDistrictCode) {
+          return;
+        }
+        scheduleOrganizationSearch();
+      });
+
+      organizationSearchInput.addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter") {
+          return;
+        }
+        event.preventDefault();
+        await runOrganizationSearch();
+      });
+
+      organizationSearchButton.addEventListener("click", async () => {
+        await runOrganizationSearch();
+      });
+
+      createWatchButton.addEventListener("click", async () => {
+        setStatus("Создаю наблюдение...");
+        setWatchStatus("Сохраняю профиль и создаю наблюдение...");
+        setButtonBusy(createWatchButton, true, "Добавляю...");
+        try {
+          await saveProfile();
+          await createWatchTarget();
+          await loadWatchTargets();
+          setStatus("Наблюдение добавлено.");
+          setWatchStatus(
+            state.watchMode === "autobook"
+              ? `Наблюдение добавлено. Для автозаписи будет использоваться стратегия: ${formatBookingStrategy(state.bookingStrategy)}.`
+              : "Наблюдение добавлено и уже участвует в мониторинге."
+          );
+          tg?.HapticFeedback?.notificationOccurred("success");
+        } catch (error) {
+          setStatus(error.message, true);
+          setWatchStatus(error.message, true);
+          tg?.HapticFeedback?.notificationOccurred("error");
+        } finally {
+          setButtonBusy(createWatchButton, false);
+        }
+      });
+
+      watchListNode.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+        if (!action || !id) {
+          return;
+        }
+
+        try {
+          if (action === "scan") {
+            setStatus("Запускаю ручной скан...");
+            const result = await apiRequest(`/api/v1/watch-targets/${id}/scan`, { method: "POST" });
+            if (result.event?.summary) {
+              setStatus(`Скан завершен: ${result.event.summary}`);
+            }
+            await loadWatchTargets();
+            return;
+          }
+
+          if (action === "toggle") {
+            const isActive = target.dataset.active === "true";
+            await apiRequest(`/api/v1/watch-targets/${id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ is_active: !isActive }),
+            });
+            await loadWatchTargets();
+            setStatus("Статус наблюдения обновлен.");
+            return;
+          }
+
+          if (action === "set-strategy") {
+            const strategy = target.dataset.strategy || "nearest_date_latest_time";
+            await apiRequest(`/api/v1/watch-targets/${id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ booking_strategy: strategy }),
+            });
+            await loadWatchTargets();
+            setStatus(`Стратегия автозаписи обновлена: ${formatBookingStrategy(strategy)}.`);
+            return;
+          }
+
+          if (action === "delete") {
+            await apiRequest(`/api/v1/watch-targets/${id}`, { method: "DELETE" });
+            await loadWatchTargets();
+            setStatus("Наблюдение удалено.");
+          }
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+      });
+
+      setMode("notify");
+      setBookingStrategy("nearest_date_latest_time");
+      loadProfile();
+    </script>
+  </body>
+</html>
