@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from goszdrav_bot.core.districts import DISTRICTS, DISTRICT_BY_CODE
@@ -15,6 +17,7 @@ from goszdrav_bot.scraper.errors import GorzdravMaintenanceError, GorzdravScrape
 from goszdrav_bot.api.routes.profile import get_identity
 
 router = APIRouter(prefix="/api/v1/catalog", tags=["catalog"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/districts", response_model=list[DistrictOption])
@@ -35,8 +38,19 @@ async def list_organizations(
     try:
         result = await scraper.list_organizations(district_code, query)
     except GorzdravMaintenanceError as exc:
+        logger.warning(
+            "Gorzdrav maintenance while listing organizations: district_code=%s query=%s error=%s",
+            district_code,
+            query,
+            exc,
+        )
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except GorzdravScraperError as exc:
+        logger.exception(
+            "Gorzdrav scraper error while listing organizations: district_code=%s query=%s",
+            district_code,
+            query,
+        )
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return [OrganizationOption(**item) for item in result]
 
@@ -59,8 +73,21 @@ async def list_specialties(
             organization_external_id=organization_external_id,
         )
     except GorzdravMaintenanceError as exc:
+        logger.warning(
+            "Gorzdrav maintenance while listing specialties: district_code=%s organization_external_id=%s organization_label=%s error=%s",
+            district_code,
+            organization_external_id,
+            organization_label,
+            exc,
+        )
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except GorzdravScraperError as exc:
+        logger.exception(
+            "Gorzdrav scraper error while listing specialties: district_code=%s organization_external_id=%s organization_label=%s",
+            district_code,
+            organization_external_id,
+            organization_label,
+        )
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return [SpecialtyOption(**item) for item in result]
 
@@ -87,8 +114,21 @@ async def list_doctors(
             specialty_external_id=specialty_external_id,
         )
     except GorzdravMaintenanceError as exc:
+        logger.warning(
+            "Gorzdrav maintenance while listing doctors: district_code=%s organization_external_id=%s specialty_external_id=%s error=%s",
+            district_code,
+            organization_external_id,
+            specialty_external_id,
+            exc,
+        )
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except GorzdravScraperError as exc:
+        logger.exception(
+            "Gorzdrav scraper error while listing doctors: district_code=%s organization_external_id=%s specialty_external_id=%s",
+            district_code,
+            organization_external_id,
+            specialty_external_id,
+        )
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return [DoctorOption(**item) for item in result]
 
@@ -119,7 +159,22 @@ async def get_schedule(
             doctor_external_id=doctor_external_id,
         )
     except GorzdravMaintenanceError as exc:
+        logger.warning(
+            "Gorzdrav maintenance while loading schedule: district_code=%s organization_external_id=%s specialty_external_id=%s doctor_external_id=%s error=%s",
+            district_code,
+            organization_external_id,
+            specialty_external_id,
+            doctor_external_id,
+            exc,
+        )
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except GorzdravScraperError as exc:
+        logger.exception(
+            "Gorzdrav scraper error while loading schedule: district_code=%s organization_external_id=%s specialty_external_id=%s doctor_external_id=%s",
+            district_code,
+            organization_external_id,
+            specialty_external_id,
+            doctor_external_id,
+        )
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return DoctorScheduleSnapshot(**result)
